@@ -1,0 +1,29 @@
+# Source and config (not needed in published package)
+src/
+vite.config.ts
+vitest.config.ts
+tsconfig.json
+svelte.config.js
+eslint.config.js
+.prettierrc
+
+# Development
+.git/
+.github/
+
+# Test files
+src/test/
+coverage/
+
+# Editor and IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Package manager (keep bun.lock if using bun, remove if npm)
+bun.lock
