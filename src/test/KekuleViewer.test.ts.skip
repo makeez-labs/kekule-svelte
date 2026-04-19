@@ -1,0 +1,51 @@
+import { describe, it, expect, vi } from 'vitest'
+import { render, waitFor }           from '@testing-library/svelte'
+import KekuleViewer                   from '../lib/KekuleViewer.svelte'
+
+// loader is auto-mocked via setup.ts (Kekule global is stubbed)
+vi.mock('../lib/loader.js', () => ({
+  loadKekule:    () => Promise.resolve((window as any).Kekule),
+  isKekuleReady: () => true,
+}))
+
+describe('KekuleViewer', () => {
+  it('renders without crashing', () => {
+    const { container } = render(KekuleViewer, { props: { smiles: 'CCO' } })
+    expect(container).toBeTruthy()
+  })
+
+  it('shows loading state initially', () => {
+    const { container } = render(KekuleViewer, { props: { smiles: 'CCO' } })
+    // Loading overlay should be present before async load resolves
+    const overlay = container.querySelector('.kekule-overlay')
+    expect(overlay).toBeTruthy()
+  })
+
+  it('applies width and height styles', () => {
+    const { container } = render(KekuleViewer, {
+      props: { smiles: 'CCO', width: '500px', height: '300px' },
+    })
+    const wrapper = container.querySelector('.kekule-viewer') as HTMLElement
+    expect(wrapper.style.width).toBe('500px')
+    expect(wrapper.style.height).toBe('300px')
+  })
+
+  it('applies extra class name', () => {
+    const { container } = render(KekuleViewer, {
+      props: { smiles: 'CCO', class: 'my-custom-class' },
+    })
+    expect(container.querySelector('.my-custom-class')).toBeTruthy()
+  })
+
+  it('calls onError for empty smiles after load', async () => {
+    const onError = vi.fn()
+    render(KekuleViewer, { props: { smiles: '', onError } })
+    await waitFor(() => expect(onError).toHaveBeenCalled(), { timeout: 2000 })
+  })
+
+  it('calls onReady callback after successful render', async () => {
+    const onReady = vi.fn()
+    render(KekuleViewer, { props: { smiles: 'CCO', onReady } })
+    await waitFor(() => expect(onReady).toHaveBeenCalled(), { timeout: 2000 })
+  })
+})
