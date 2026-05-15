@@ -24,52 +24,58 @@
 
   interface Props extends HTMLAttributes<HTMLDivElement> {
     /** Initial SMILES to load */
-    smiles?:   string
-    width?:    string
-    height?:   string
-    class?:    string
+    smiles?:     string
+    width?:      string
+    height?:     string
+    /** Show the editor toolbar */
+    showToolbar?: boolean
+    class?:      string
     /** Called on every structural change — emits SMILES string */
-    onSmiles?: (smiles: string) => void
+    onSmiles?:   (smiles: string) => void
     /** Called on every structural change — emits raw Kekule mol */
-    onChange?: (mol: unknown) => void
+    onChange?:   (mol: unknown) => void
     /** Called once the editor is ready */
-    onReady?:  (editor: unknown) => void
+    onReady?:    (editor: unknown) => void
     /** Called when the editor fails to load */
-    onError?:  (error: KekuleError) => void
+    onError?:    (error: KekuleError) => void
     /** Custom loading indicator */
-    loading?:  Snippet
+    loading?:    Snippet
     /** Custom error display — receives { error: string } */
-    error?:    Snippet<[{ error: string }]>
+    error?:      Snippet<[{ error: string }]>
   }
 
   let {
-    smiles   = '',
-    width    = '100%',
-    height   = '480px',
-    class:   className = '',
+    smiles      = '',
+    width       = '100%',
+    height      = '480px',
+    showToolbar = true,
+    class:      className = '',
     onSmiles,
     onChange,
     onReady,
     onError,
-    loading: loadingSnippet,
-    error:   errorSnippet,
+    loading:    loadingSnippet,
+    error:      errorSnippet,
     ...restProps
   }: Props = $props()
 
   // ── Internal state ──────────────────────────────────────────
 
-  let container: HTMLDivElement | undefined = $state()
-  let editor:    unknown = $state(null)
-  let isLoading: boolean = $state(true)
-  let errorMsg:  string | null = $state(null)
-  let K:         KekuleModule | null = $state(null)
+  let container:   HTMLDivElement | undefined = $state()
+  let editor:      unknown = $state(null)
+  let isLoading:   boolean = $state(true)
+  let errorMsg:    string | null = $state(null)
+  let K:           KekuleModule | null = $state(null)
+  let destroyed:   boolean = false
+  let initialized: boolean = false
 
   // ── Lifecycle ───────────────────────────────────────────────
 
   onMount(() => {
     loadKekule()
-      .then(module => { K = module; initEditor() })
+      .then(module => { if (!destroyed) { K = module; initEditor() } })
       .catch((e: unknown) => {
+        if (destroyed) return
         const err = e instanceof KekuleError ? e : new KekuleError(
           e instanceof Error ? e.message : 'Failed to load Kekule.js',
           'LOAD_FAILED', e
@@ -79,7 +85,14 @@
         onError?.(err)
       })
 
-    return () => destroyEditor()
+    return () => { destroyed = true; destroyEditor() }
+  })
+
+  // React to external smiles prop changes
+  $effect(() => {
+    if (initialized && K && editor && smiles?.trim()) {
+      loadSmilesIntoEditor(smiles)
+    }
   })
 
   // ── Init ────────────────────────────────────────────────────
@@ -92,11 +105,10 @@
 
     const ed = new K.Editor.Composer(mountEl)
     ed.setDimension(width, height)
-    ed.setEnableToolbar(true)
+    ed.setEnableToolbar(showToolbar)
 
     editor = ed
-
-    if (smiles?.trim()) loadSmilesIntoEditor(smiles)
+    initialized = true
 
     ed.addEventListener('valueChange', handleChange)
 
@@ -126,6 +138,9 @@
       if (mol) {
         K.CoordGenerator.prepare2DCoords(mol)
         ;(editor as { setChemObj: (m: unknown) => void }).setChemObj(mol)
+        onChange?.(mol)
+        const out = K.IO.saveFormatData(mol, 'smi') as string | null
+        if (out?.trim()) onSmiles?.(out.trim())
       }
     } catch (e) {
       console.warn('[kekule-svelte] Could not load SMILES into editor:', e)

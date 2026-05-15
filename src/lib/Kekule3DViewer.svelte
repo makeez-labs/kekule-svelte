@@ -69,10 +69,12 @@
   // ── Internal state ──────────────────────────────────────────
 
   let container: HTMLDivElement | undefined = $state()
+  let mountEl:   HTMLDivElement | null = $state(null)
   let viewer:    unknown = $state(null)
   let isLoading: boolean = $state(true)
   let errorMsg:  string | null = $state(null)
   let K:         KekuleModule | null = $state(null)
+  let destroyed: boolean = false
 
   /** Tracks render generation to discard stale RAF callbacks */
   let renderGen = 0
@@ -81,8 +83,9 @@
 
   onMount(() => {
     loadKekule()
-      .then(module => { K = module })
+      .then(module => { if (!destroyed) K = module })
       .catch((e: unknown) => {
+        if (destroyed) return
         const err = e instanceof KekuleError ? e : new KekuleError(
           e instanceof Error ? e.message : 'Failed to load Kekule.js',
           'LOAD_FAILED', e
@@ -92,12 +95,21 @@
         onError?.(err)
       })
 
-    return () => destroyViewer()
+    return () => { destroyed = true; destroyViewer() }
   })
 
   $effect(() => {
     if (K && (smiles || molBlock)) {
       render3D(smiles || molBlock, smiles ? 'smi' : 'mol')
+    }
+  })
+
+  // Reactive background — update canvas style when prop changes
+  $effect(() => {
+    const bg = background
+    if (mountEl) {
+      const canvas = mountEl.querySelector('canvas') as HTMLCanvasElement | null
+      if (canvas) canvas.style.background = bg
     }
   })
 
@@ -123,10 +135,11 @@
       K.CoordGenerator.prepare3DCoords(mol)
       destroyViewer()
 
-      const mountEl = document.createElement('div')
-      container.appendChild(mountEl)
+      const el = document.createElement('div')
+      container.appendChild(el)
+      mountEl = el
 
-      const v = new K.ChemWidget.Viewer3D(mountEl)
+      const v = new K.ChemWidget.Viewer3D(el)
       v.setDimension(width, height)
       v.setPredefinedSetting('basic3D')
       v.setEnableToolbar(showToolbar)
@@ -136,9 +149,9 @@
       viewer = v
 
       requestAnimationFrame(() => {
-        if (thisGen !== renderGen) return // stale render, skip
+        if (thisGen !== renderGen || destroyed) return // stale render, skip
 
-        const canvas = mountEl.querySelector('canvas') as HTMLCanvasElement | null
+        const canvas = el.querySelector('canvas') as HTMLCanvasElement | null
         if (canvas) canvas.style.background = background
 
         try { v.repaint() } catch { /* best-effort */ }
@@ -162,6 +175,7 @@
     if (!container) return
     try { (viewer as { finalize?: () => void })?.finalize?.() } catch { /* ignore */ }
     viewer = null
+    mountEl = null
     while (container.firstChild) container.removeChild(container.firstChild)
   }
 
