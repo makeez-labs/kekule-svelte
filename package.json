@@ -1,6 +1,6 @@
 {
   "name": "kekule-svelte",
-  "version": "0.1.0",
+  "version": "0.1.2",
   "description": "Svelte 5 wrapper for Kekule.js — render and edit organic compound structures from SMILES strings",
   "keywords": [
     "svelte",
@@ -14,7 +14,7 @@
     "svelte5",
     "runes"
   ],
-  "homepage": "https://kekule-svelte.makeez.dev",
+  "homepage": "https://kekule-svelte-docs.vercel.app/",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/makeez-labs/kekule-svelte.git"
@@ -25,7 +25,7 @@
   "license": "MIT",
   "author": {
     "name": "Makeez Labs",
-    "url": "https://makeez.dev"
+    "url": "https://github.com/makeez-labs"
   },
   "type": "module",
   "sideEffects": false,
@@ -34,6 +34,11 @@
       "types": "./dist/index.d.ts",
       "svelte": "./dist/index.js",
       "default": "./dist/index.js"
+    },
+    "./index-ssr": {
+      "types": "./dist/index-ssr.d.ts",
+      "svelte": "./dist/index-ssr.js",
+      "default": "./dist/index-ssr.js"
     }
   },
   "svelte": "./dist/index.js",
@@ -59,19 +64,19 @@
   "devDependencies": {
     "@eslint/js": "^10.0.1",
     "@sveltejs/package": "^2.5.7",
-    "@sveltejs/vite-plugin-svelte": "^7.0.0",
+    "@sveltejs/vite-plugin-svelte": "^7.1.2",
     "@testing-library/svelte": "^5.3.1",
     "esbuild": "^0.28.0",
-    "eslint": "^10.2.1",
-    "eslint-plugin-svelte": "^3.17.0",
-    "jsdom": "^29.0.2",
+    "eslint": "^10.3.0",
+    "eslint-plugin-svelte": "^3.17.1",
+    "jsdom": "^29.1.1",
     "prettier": "^3.8.3",
-    "prettier-plugin-svelte": "^3.5.1",
-    "svelte": "^5.55.4",
-    "svelte-check": "^4.4.6",
+    "prettier-plugin-svelte": "^3.5.2",
+    "svelte": "^5.55.7",
+    "svelte-check": "^4.4.8",
     "typescript": "^6.0.3",
-    "typescript-eslint": "^8.58.2",
-    "vite": "^8.0.8",
-    "vitest": "^4.1.4"
+    "typescript-eslint": "^8.59.3",
+    "vite": "^8.0.13",
+    "vitest": "^4.1.6"
   }
 }
