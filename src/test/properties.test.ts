@@ -1,5 +1,6 @@
 import { describe, it, expect, vi } from 'vitest';
 import {
+  getMoleculeProperties,
   computeFormula,
   computeMolecularWeight,
   computeRingCount,
@@ -240,6 +241,35 @@ describe('validateSmiles', () => {
   });
 });
 
+// ── getMoleculeProperties ─────────────────────────────────────
+
+describe('getMoleculeProperties', () => {
+  it('returns properties for valid SMILES', () => {
+    const result = getMoleculeProperties('CCO', mockKekule as any);
+    expect(result).not.toBeNull();
+    expect(result!.isValid).toBe(true);
+    expect(result!.atomCount).toBeGreaterThan(0);
+    expect(result!.formula).toBeDefined();
+    expect(result!.molecularWeight).toBeGreaterThan(0);
+    expect(result!.heavyAtomCount).toBeGreaterThan(0);
+  });
+
+  it('returns null for invalid SMILES', () => {
+    const result = getMoleculeProperties('INVALID', mockKekule as any);
+    expect(result).toBeNull();
+  });
+
+  it('returns null for empty SMILES', () => {
+    const result = getMoleculeProperties('', mockKekule as any);
+    expect(result).toBeNull();
+  });
+
+  it('handles null Kekule module', () => {
+    const result = getMoleculeProperties('CCO', null as any);
+    expect(result).toBeNull();
+  });
+});
+
 // ── smilesToMol ────────────────────────────────────────────────
 
 describe('smilesToMol', () => {
@@ -265,21 +295,28 @@ describe('smilesToMol', () => {
     const result = smilesToMol('CCO', null as any);
     expect(result.success).toBe(false);
   });
-});
 
-// ── smilesToSDF ────────────────────────────────────────────────
-
-describe('smilesToSDF', () => {
-  it('converts valid SMILES to SDF', () => {
-    const result = smilesToSDF('CCO', mockKekule as any);
-    expect(result.success).toBe(true);
-    expect(result.output).toBe('SDF block content');
+  it('returns error message from Kekule exceptions', () => {
+    const throwingKekule = {
+      IO: {
+        loadFormatData: vi.fn(() => { throw new Error('custom parse error') }),
+        saveFormatData: vi.fn(),
+      },
+    };
+    const result = smilesToMol('CCO', throwingKekule as any);
+    expect(result.success).toBe(false);
+    expect(result.error).toContain('custom parse error');
   });
 
-  it('rejects empty SMILES', () => {
-    const result = smilesToSDF('', mockKekule as any);
-    expect(result.success).toBe(false);
-    expect(result.error).toBe('SMILES string is required');
+  it('trims whitespace from SMILES', () => {
+    const result = smilesToMol('  CCO  ', mockKekule as any);
+    expect(result.success).toBe(true);
+  });
+
+  it('converts valid SMILES to MOL block', () => {
+    const result = smilesToMol('CCO', mockKekule as any);
+    expect(result.success).toBe(true);
+    expect(result.output).toBe('MOL block content');
   });
 });
 
@@ -328,5 +365,95 @@ describe('parseMolBlock', () => {
   it('handles null Kekule', () => {
     const result = parseMolBlock('MOL', null as any);
     expect(result).toBeNull();
+  });
+
+  it('handles throwing Kekule', () => {
+    const throwingKekule = {
+      IO: {
+        loadFormatData: vi.fn(() => { throw new Error('mol parse error') }),
+        saveFormatData: vi.fn(),
+      },
+    };
+    const result = parseMolBlock('BAD DATA', throwingKekule as any);
+    expect(result).toBeNull();
+  });
+});
+
+// ── smilesToSDF ────────────────────────────────────────────────
+
+describe('smilesToSDF', () => {
+  it('converts valid SMILES to SDF', () => {
+    const result = smilesToSDF('CCO', mockKekule as any);
+    expect(result.success).toBe(true);
+    expect(result.output).toBe('SDF block content');
+  });
+
+  it('rejects empty SMILES', () => {
+    const result = smilesToSDF('', mockKekule as any);
+    expect(result.success).toBe(false);
+    expect(result.error).toBe('SMILES string is required');
+  });
+
+  it('rejects invalid SMILES', () => {
+    const result = smilesToSDF('INVALID', mockKekule as any);
+    expect(result.success).toBe(false);
+    expect(result.error).toContain('Could not parse');
+  });
+
+  it('handles null Kekule', () => {
+    const result = smilesToSDF('CCO', null as any);
+    expect(result.success).toBe(false);
+  });
+
+  it('trims whitespace from SMILES', () => {
+    const result = smilesToSDF('  CCO  ', mockKekule as any);
+    expect(result.success).toBe(true);
+  });
+});
+
+// ── smilesToSmarts ─────────────────────────────────────────────
+
+describe('smilesToSmarts', () => {
+  it('converts valid SMILES to SMARTS', () => {
+    const result = smilesToSmarts('CCO', mockKekule as any);
+    expect(result.success).toBe(true);
+    expect(result.output).toBe('SMARTS pattern');
+  });
+
+  it('rejects empty SMILES', () => {
+    const result = smilesToSmarts('', mockKekule as any);
+    expect(result.success).toBe(false);
+    expect(result.error).toBe('SMILES string is required');
+  });
+
+  it('rejects invalid SMILES', () => {
+    const result = smilesToSmarts('INVALID', mockKekule as any);
+    expect(result.success).toBe(false);
+    expect(result.error).toContain('Could not parse');
+  });
+
+  it('handles null Kekule', () => {
+    const result = smilesToSmarts('CCO', null as any);
+    expect(result.success).toBe(false);
+  });
+});
+
+// ── computeFormula additional ──────────────────────────────────
+
+describe('computeFormula (additional)', () => {
+  it('handles atoms with unknown symbols', () => {
+    const atoms = [{ getSymbol: () => undefined }];
+    expect(computeFormula(atoms as any)).toBe('?');
+  });
+
+  it('sorts non-CH elements alphabetically', () => {
+    const atoms = [
+      { getSymbol: () => 'O' },
+      { getSymbol: () => 'S' },
+      { getSymbol: () => 'N' },
+      { getSymbol: () => 'C' },
+      { getSymbol: () => 'H' },
+    ];
+    expect(computeFormula(atoms as any)).toBe('CHNOS');
   });
 });
