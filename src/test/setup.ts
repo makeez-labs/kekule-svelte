@@ -30,6 +30,18 @@ Object.defineProperty(global, 'Kekule', {
         finalize: vi.fn(),
         exportToDataUri: vi.fn(() => 'data:image/svg+xml;base64,abc'),
       })),
+      Viewer3D: vi.fn().mockImplementation(() => ({
+        setDimension: vi.fn(),
+        setPredefinedSetting: vi.fn(),
+        setEnableToolbar: vi.fn(),
+        setRenderType: vi.fn(),
+        setChemObj: vi.fn(),
+        repaint: vi.fn(),
+        finalize: vi.fn(),
+        exportToDataUri: vi.fn(() => 'data:image/svg+xml;base64,abc'),
+        rotate: vi.fn(),
+        zoomToFit: vi.fn(),
+      })),
     },
     Editor: {
       Composer: vi.fn().mockImplementation(() => ({

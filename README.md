@@ -331,8 +331,8 @@ This library uses modern Svelte 5 patterns:
 
 ## Documentation
 
-Full documentation available at [kekule-svelte.makeez.dev](https://kekule-svelte.makeez.dev)
+Full documentation available at [kekule-svelte-docs.verce.app](https://kekule-svelte-docs.vercel.app/)
 
 ## License
 
-MIT - [Makeez Labs](https://makeez.dev)
+MIT - [Makeez Labs](https://github.com/makeez-labs)

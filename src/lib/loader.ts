@@ -65,8 +65,8 @@ export type KekuleModule = {
 
 // ── Configuration ─────────────────────────────────────────────
 
-const DEFAULT_CDN_BASE = 'https://cdn.jsdelivr.net/npm/kekule@0.9.7/dist';
-const DEFAULT_TIMEOUT_MS = 15_000;
+const DEFAULT_CDN_BASE = 'https://cdn.jsdelivr.net/npm/kekule@1.0.3/dist';
+const DEFAULT_TIMEOUT_MS = 30_000;
 
 interface KekuleConfig {
   /** Override CDN base URL (e.g. for self-hosted Kekule.js) */
@@ -102,11 +102,11 @@ function getCdnBase(): string {
 }
 
 function getJsUrl(): string {
-  return `${getCdnBase()}/kekule.min.js?modules=io,chemWidget,algorithm,widget`;
+  return `${getCdnBase()}/kekule.min.js`;
 }
 
 function getCssUrl(): string {
-  return `${getCdnBase()}/themes/default/kekule.css`;
+  return `${getCdnBase()}/themes/default/kekule.min.css`;
 }
 
 function getTimeout(): number {
@@ -136,6 +136,25 @@ function fail(message: string, code: KekuleErrorCode, cause?: unknown): KekuleEr
   return new KekuleError(`[kekule-svelte] ${message}`, code, cause);
 }
 
+function isReady(K: KekuleModule | undefined): boolean {
+  const ready = !!(K?.IO && K?.ChemWidget && K?.CoordGenerator && K?.Widget);
+  if (K && !ready && typeof window !== 'undefined') {
+    // Periodically log what's missing to help debug timeouts
+    if (!(window as any)._kekule_log_timer) {
+      (window as any)._kekule_log_timer = setTimeout(() => {
+        const missing = [];
+        if (!K.IO) missing.push('IO');
+        if (!K.ChemWidget) missing.push('ChemWidget');
+        if (!K.CoordGenerator) missing.push('CoordGenerator');
+        if (!K.Widget) missing.push('Widget');
+        console.warn('[kekule-svelte] Kekule global found but missing modules:', missing.join(', '));
+        (window as any)._kekule_log_timer = null;
+      }, 2000);
+    }
+  }
+  return ready;
+}
+
 // ── Public API ────────────────────────────────────────────────
 
 /**
@@ -159,24 +178,29 @@ export function loadKekule(): Promise<KekuleModule> {
       return;
     }
 
-    const scriptEl = document.querySelector('script[src*="kekule.min.js"]');
+    // Check if any script tag starting with kekule is already present
+    const scriptEl = document.querySelector('script[src*="kekule"]');
     if (scriptEl) {
-      // Script is already in the DOM (probably initializing asynchronously)
+      injectCSS();
+      const start = Date.now();
+      const timeout = getTimeout();
       const poll = setInterval(() => {
         const K = getGlobal();
         if (isReady(K)) {
           clearInterval(poll);
           resolve(K!);
+          return;
+        }
+        if (Date.now() - start > timeout) {
+          clearInterval(poll);
+          loadPromise = null;
+          reject(fail(`Kekule.js timed out during initialisation (${getMissingModules(K)})`, 'LOAD_TIMEOUT'));
         }
       }, POLL_INTERVAL_MS);
       return;
-    } else {
-      injectCSS();
-      resolve(existing!);
-      return;
     }
 
-    // Inject CSS alongside the script
+    // No script tag found — inject CSS and the script from CDN
     injectCSS();
 
     const script = document.createElement('script');
@@ -198,7 +222,7 @@ export function loadKekule(): Promise<KekuleModule> {
         if (Date.now() - start > timeout) {
           clearInterval(poll);
           loadPromise = null;
-          reject(fail('Kekule.js timed out during initialisation', 'LOAD_TIMEOUT'));
+          reject(fail(`Kekule.js timed out during initialisation (${getMissingModules(K)})`, 'LOAD_TIMEOUT'));
         }
       }, POLL_INTERVAL_MS);
     };
@@ -213,6 +237,7 @@ export function loadKekule(): Promise<KekuleModule> {
 
   return loadPromise;
 }
+
 
 /**
  * Reset the loader and attempt to load Kekule.js again.
@@ -236,6 +261,12 @@ function getGlobal(): KekuleModule | undefined {
   return (globalThis as unknown as { Kekule?: KekuleModule }).Kekule;
 }
 
-function isReady(K: KekuleModule | undefined): boolean {
-  return !!(K?.IO && K?.ChemWidget && K?.CoordGenerator && K?.Widget);
+function getMissingModules(K: KekuleModule | undefined): string {
+  if (!K) return 'Global Kekule object not found';
+  const missing = [];
+  if (!K.IO) missing.push('IO');
+  if (!K.ChemWidget) missing.push('ChemWidget');
+  if (!K.CoordGenerator) missing.push('CoordGenerator');
+  if (!K.Widget) missing.push('Widget');
+  return `Missing modules: ${missing.join(', ')}`;
 }
